@@ -3,11 +3,13 @@ import logging
 import urllib.parse
 import re
 from pathlib import Path
+import aiohttp
 import validators
 from PIL import Image, ImageDraw, ImageFont
 import pandas as pd
 from bs4 import BeautifulSoup
 
+import config
 
 async def fetch_html(session, url, retries=3, backoff_factor=1):
     """Fetch HTML content from a URL with retries."""
@@ -62,7 +64,8 @@ async def download_image(session, img_url, filename, save_folder, date_str):
                 save_path = Path(save_folder) / safe_filename
                 with open(save_path, 'wb') as f:
                     f.write(await response.read())
-                print(f"Saved image: {save_path}")
+                if config.DEBUG:
+                    print(f"Saved image: {save_path}")
 
                 # Add date to the image
                 try:
@@ -98,7 +101,8 @@ async def download_image(session, img_url, filename, save_folder, date_str):
 
                         # Save the modified image
                         img.save(save_path, 'JPEG')
-                        print(f"Added date to image: {save_path}")
+                        if config.DEBUG:
+                            print(f"Added date to image: {save_path}")
                 except Exception as e:
                     logging.error(f"Error adding date to {save_path}: {e}")
             else:
@@ -137,3 +141,32 @@ async def process_batch(session, batch, save_folder, semaphore, progress_queue, 
         for i, (_, row) in enumerate(batch.iterrows())
     ]
     await asyncio.gather(*tasks)
+
+async def async_download_manager(excel_file, save_folder, progress_queue, max_concurrent=50, batch_size=100):
+    """Main function to process the Excel file and download images."""
+    Path(save_folder).mkdir(parents=True, exist_ok=True)
+
+    try:
+        df = pd.read_excel(excel_file, header=None)
+        total_rows = len(df)
+        if total_rows == 0:
+            logging.error("Excel file is empty")
+            return False, "Excel file is empty"
+    except Exception as e:
+        logging.error(f"Error reading Excel file: {e}")
+        return False, str(e)
+
+    batches = [df[i:i + batch_size] for i in range(0, len(df), batch_size)]
+    semaphore = asyncio.Semaphore(max_concurrent)
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            for i, batch in enumerate(batches):
+                print(f"Processing batch {i + 1}/{len(batches)}")
+                start_index = i * batch_size
+                await process_batch(session, batch, save_folder, semaphore, progress_queue, start_index, total_rows)
+                await asyncio.sleep(1)
+        return True, None
+    except Exception as e:
+        logging.warning(f"Error during download: {e}")
+        return False, str(e)

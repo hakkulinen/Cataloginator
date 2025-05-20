@@ -6,7 +6,8 @@ import threading
 import logging
 from queue import Queue, Empty
 
-from main import main
+from webdownloader import async_download_manager
+import config
 
 
 class ImageDownloaderGUI:
@@ -88,7 +89,7 @@ class ImageDownloaderGUI:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             success, error = loop.run_until_complete(
-                main(excel_file, save_folder, self.progress_queue)
+                async_download_manager(excel_file, save_folder, self.progress_queue)
             )
             loop.close()
             self.root.after(0, self.show_result, success, error, save_folder)
