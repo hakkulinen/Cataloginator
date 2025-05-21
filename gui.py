@@ -206,16 +206,15 @@ class ImageDownloaderGUI:
         logging.debug(f"Initialized Excel report at {self.excel_path}")
 
     def open_cataloging_window(self, catalog_folder, images, processed_folder, hold_folder):
+
         catalog_window = tk.Toplevel(self.root)
         catalog_window.title("Catalog Images")
-        try:
-            catalog_window.state('zoomed')  # Try standard maximize method
-        except tk.TclError:
-            # Fallback: Set window size to screen dimensions
-            screen_width = catalog_window.winfo_screenwidth()
-            screen_height = catalog_window.winfo_screenheight()
-            catalog_window.geometry(f"{screen_width}x{screen_height}+0+0")
-        catalog_window.resizable(True, True)  # Allow resizing
+        # Maximize window using geometry and topmost
+        screen_width = catalog_window.winfo_screenwidth()
+        screen_height = catalog_window.winfo_screenheight()
+        catalog_window.geometry(f"{screen_width}x{screen_height - 40}+0+0")  # Subtract 40px for taskbar
+        catalog_window.wm_attributes('-topmost', 1)  # Bring window to front
+        catalog_window.after(100, lambda: catalog_window.wm_attributes('-topmost', 0))  # Reset topmost after 100ms
 
         # Exit maximized window with Escape key
         catalog_window.bind('<Escape>', lambda e: catalog_window.destroy())
