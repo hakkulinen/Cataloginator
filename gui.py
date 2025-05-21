@@ -208,7 +208,13 @@ class ImageDownloaderGUI:
     def open_cataloging_window(self, catalog_folder, images, processed_folder, hold_folder):
         catalog_window = tk.Toplevel(self.root)
         catalog_window.title("Catalog Images")
-        catalog_window.state('zoomed')  # Maximize window without covering taskbar
+        try:
+            catalog_window.state('zoomed')  # Try standard maximize method
+        except tk.TclError:
+            # Fallback: Set window size to screen dimensions
+            screen_width = catalog_window.winfo_screenwidth()
+            screen_height = catalog_window.winfo_screenheight()
+            catalog_window.geometry(f"{screen_width}x{screen_height}+0+0")
         catalog_window.resizable(True, True)  # Allow resizing
 
         # Exit maximized window with Escape key
