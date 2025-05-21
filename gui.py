@@ -8,6 +8,8 @@ from queue import Queue, Empty
 from PIL import Image, ImageTk
 import shutil
 from pathlib import Path
+import openpyxl
+from openpyxl.utils import get_column_letter
 
 from webdownloader import async_download_manager
 import config
@@ -181,16 +183,35 @@ class ImageDownloaderGUI:
             messagebox.showinfo("Info", "No images found in the selected folder.")
             return
 
+        # Initialize Excel report
+        self.initialize_excel_report(catalog_folder)
+
         # Open cataloging window
         self.open_cataloging_window(catalog_folder, images, processed_folder, hold_folder)
+
+    def initialize_excel_report(self, catalog_folder):
+        self.excel_path = Path("./") / "catalog_report.xlsx"
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Catalog Report"
+        headers = [
+            "bwu", "region", "Outlet number", "Scene id", "BWU type",
+            "Legislation issue", "Switched off", "Header", "Screen/SAS", "Exterior frame",
+            "Shelves light", "Number", "Shelfstrip (base)", "Number", "Shelfstrip (insert)",
+            "Number", "Adjust height of shelves", "No holders of packs", "Other"
+        ]
+        for col, header in enumerate(headers, 1):
+            ws[f"{get_column_letter(col)}1"] = header
+        wb.save(self.excel_path)
+        logging.debug(f"Initialized Excel report at {self.excel_path}")
 
     def open_cataloging_window(self, catalog_folder, images, processed_folder, hold_folder):
         catalog_window = tk.Toplevel(self.root)
         catalog_window.title("Catalog Images")
-        catalog_window.wm_attributes('-zoomed', 1)
-        catalog_window.resizable(True, True)
+        catalog_window.wm_attributes('-zoomed', 1)  # Maximize window without covering taskbar
+        catalog_window.resizable(True, True)  # Allow resizing
 
-        # Exit fullscreen with Escape key
+        # Exit maximized window with Escape key
         catalog_window.bind('<Escape>', lambda e: catalog_window.destroy())
 
         self.current_image_index = 0
@@ -203,21 +224,60 @@ class ImageDownloaderGUI:
         self.image_label = tk.Label(main_frame)
         self.image_label.pack(side="left", padx=20, pady=20)
 
-        # Right frame for buttons
-        button_frame = ttk.Frame(main_frame)
-        button_frame.pack(side="right", padx=20, pady=20, anchor="se")
+        # Right frame for buttons and checkboxes
+        right_frame = ttk.Frame(main_frame)
+        right_frame.pack(side="right", padx=20, pady=20, fill="y")
 
-        # Submit and Hold buttons
+        # BWU Type (top right, mutually exclusive)
+        bwu_frame = ttk.Frame(right_frame)
+        bwu_frame.pack(side="top", anchor="center")
+        bwu_label = tk.Label(bwu_frame, text="BWU Type:", font=("arial.ttf", 12))
+        bwu_label.pack(side="left")
+        self.bwu_var = tk.StringVar(value="")
+        bwu_types = [
+            "PRO", "X", "Mini", "X flap", "Mini flap", "A2", "Pr 12/15",
+            "SS Flaps", "Door Slim 12/15", "Door Oval 12/15", "Other"
+        ]
+        for bwu_type in bwu_types:
+            rb = tk.Radiobutton(bwu_frame, text=bwu_type, variable=self.bwu_var, value=bwu_type, font=("arial.ttf", 12), padx=2, pady=5)
+            rb.pack(side="left", padx=2)
+
+        # Detected Defects (middle right, non-mutually exclusive)
+        defects_frame = ttk.Frame(right_frame)
+        defects_frame.pack(pady=40, anchor="center")
+        defects_label = tk.Label(defects_frame, text="Detected defects:", font=("arial.ttf", 15))
+        defects_label.pack(anchor="w")
+        self.defect_vars = {}
+        self.number_entries = {}
+        defect_types = [
+            "Legislation issue", "Switched-off", "Header", "Screen/SAS", "Exterior frame",
+            "Shelves light", "Shelfstrip (base)", "Shelfstrip (insert)", "Adjust height of shelves",
+            "No holders for packs", "Other"
+        ]
+        for defect in defect_types:
+            var = tk.BooleanVar(value=False)
+            self.defect_vars[defect] = var
+            row_frame = ttk.Frame(defects_frame)
+            row_frame.pack(fill="x", pady=2)
+            cb = tk.Checkbutton(row_frame, text=defect, variable=var, font=("arial.ttf", 12), padx=5, pady=5)
+            cb.pack(side="left")
+            if defect in ["Shelves light", "Shelfstrip (base)", "Shelfstrip (insert)"]:
+                entry = tk.Entry(row_frame, width=7, font=("arial.ttf", 12))
+                entry.pack(side="left", padx=5)
+                self.number_entries[defect] = entry
+
+        # Submit and Hold buttons (bottom right)
+        button_frame = ttk.Frame(right_frame)
+        button_frame.pack(side="bottom", anchor="se")
         submit_button = tk.Button(
-            button_frame, text="Submit", bg="green", fg="white", width=10,
+            button_frame, text="Submit", bg="green", fg="white", width=14, font=("arial.ttf", 14),
             command=lambda: self.process_image(
                 catalog_folder, images, processed_folder, hold_folder, catalog_window, "processed"
             )
         )
         submit_button.pack(side="bottom", pady=10)
-
         hold_button = tk.Button(
-            button_frame, text="Hold", bg="red", fg="white", width=10,
+            button_frame, text="Hold", bg="red", fg="white", width=14, font=("arial.ttf", 14),
             command=lambda: self.process_image(
                 catalog_folder, images, processed_folder, hold_folder, catalog_window, "hold"
             )
@@ -231,7 +291,7 @@ class ImageDownloaderGUI:
         if self.current_image_index >= len(images):
             # Clear image and show message
             self.image_label.config(image=None)
-            self.image_label.config(text="No more images to catalog!", font=("Arial", 20))
+            self.image_label.config(text="No more images to catalog!", font=("arial.ttf", 24))
             return
 
         image_path = os.path.join(catalog_folder, images[self.current_image_index])
@@ -243,6 +303,12 @@ class ImageDownloaderGUI:
             photo = ImageTk.PhotoImage(img)
             self.image_label.config(image=photo, text="")
             self.image_label.image = photo  # Keep reference
+            # Reset checkboxes and number entries
+            self.bwu_var.set("")
+            for var in self.defect_vars.values():
+                var.set(False)
+            for entry in self.number_entries.values():
+                entry.delete(0, tk.END)
         except Exception as e:
             logging.error(f"Error loading image {image_path}: {e}")
             self.image_label.config(text="Error loading image", font=("Arial", 20))
@@ -257,6 +323,10 @@ class ImageDownloaderGUI:
         dest_path = os.path.join(dest_folder, current_image)
 
         try:
+            # Save to Excel only on Submit
+            if action == "processed":
+                self.save_to_excel(current_image)
+            # Move image
             shutil.move(source_path, dest_path)
             logging.debug(f"Moved {current_image} to {action} folder")
         except Exception as e:
@@ -267,6 +337,44 @@ class ImageDownloaderGUI:
         # Move to next image
         self.current_image_index += 1
         self.load_image(catalog_folder, images, catalog_window)
+
+    def save_to_excel(self, image_name):
+        try:
+            wb = openpyxl.load_workbook(self.excel_path)
+            ws = wb.active
+            row = ws.max_row + 1
+
+            # Parse filename (assuming format: bwu.region.outlet.scene.jpg)
+            parts = image_name.rsplit('.', 4)  # Split on last 4 dots
+            if len(parts) >= 4:
+                bwu, region, outlet, scene = parts[:4]
+            else:
+                bwu = region = outlet = scene = ""
+
+            # Gather data
+            data = [
+                bwu, region, outlet, scene, self.bwu_var.get()
+            ]
+            defect_types = [
+                "Legislation issue", "Switched-off", "Header", "Screen/SAS", "Exterior frame",
+                "Shelves light", "Shelfstrip (base)", "Shelfstrip (insert)", "Adjust height of shelves",
+                "No holders for packs", "Other"
+            ]
+            for defect in defect_types:
+                data.append("Y" if self.defect_vars[defect].get() else "")
+                if defect in self.number_entries:
+                    number = self.number_entries[defect].get().strip()
+                    data.append(number if number else "")
+
+            # Write to Excel
+            for col, value in enumerate(data, 1):
+                ws[f"{get_column_letter(col)}{row}"] = value
+
+            wb.save(self.excel_path)
+            logging.debug(f"Saved catalog data for {image_name} to Excel")
+        except Exception as e:
+            logging.error(f"Error saving to Excel for {image_name}: {e}")
+            messagebox.showerror("Error", f"Failed to save Excel data: {e}")
 
 def start_gui():
     root = tk.Tk()
