@@ -209,7 +209,6 @@ class ImageDownloaderGUI:
 
         catalog_window = tk.Toplevel(self.root)
         catalog_window.title("Catalog Images")
-        # Maximize window using geometry and topmost
         # Maximize window using geometry
         screen_width = catalog_window.winfo_screenwidth()
         screen_height = catalog_window.winfo_screenheight()
