@@ -241,23 +241,34 @@ class ImageDownloaderGUI:
 
         # BWU Type (top right, mutually exclusive)
         bwu_frame = ttk.Frame(right_frame)
-        bwu_frame.pack(side="top", anchor="nw")
-        bwu_label = tk.Label(bwu_frame, text="BWU Type:", font=("arial.ttf", 12))
+        bwu_frame.pack(side="top", anchor="e")
+        bwu_label = tk.Label(bwu_frame, text="BWU Type:", font=("arial.ttf", 14))
         bwu_label.pack(side="left")
         self.bwu_var = tk.StringVar(value="")
         bwu_types = [
             "PRO", "X", "Mini", "X flap", "Mini flap", "A2", "Pr 12/15",
             "SS Flaps", "Door Slim 12/15", "Door Oval 12/15", "Other"
         ]
-        for bwu_type in bwu_types:
-            rb = tk.Radiobutton(bwu_frame, text=bwu_type, activeforeground='white', variable=self.bwu_var, value=bwu_type, font=("arial.ttf", 11), padx=2, pady=5)
+        # Top row (first 6 radiobuttons)
+        bwu_top_row = ttk.Frame(bwu_frame)
+        bwu_top_row.pack(side="top")
+        for bwu_type in bwu_types[:7]:
+            rb = tk.Radiobutton(bwu_top_row, text=bwu_type, variable=self.bwu_var, value=bwu_type,
+                                font=("arial.ttf", 12), padx=2, pady=5)
+            rb.pack(side="left", padx=2)
+        # Bottom row (last 5 radiobuttons)
+        bwu_bottom_row = ttk.Frame(bwu_frame)
+        bwu_bottom_row.pack(side="top")
+        for bwu_type in bwu_types[7:]:
+            rb = tk.Radiobutton(bwu_bottom_row, text=bwu_type, variable=self.bwu_var, value=bwu_type,
+                                font=("arial.ttf", 12), padx=2, pady=5)
             rb.pack(side="left", padx=2)
 
         # Detected Defects (middle right, non-mutually exclusive)
         defects_frame = ttk.Frame(right_frame)
-        defects_frame.pack(pady=40, anchor="center")
+        defects_frame.pack(pady=40, anchor="e")
         defects_label = tk.Label(defects_frame, text="Detected defects:", font=("arial.ttf", 15))
-        defects_label.pack(anchor="w")
+        defects_label.pack(anchor="e")
         self.defect_vars = {}
         self.number_entries = {}
         defect_types = [
@@ -279,7 +290,7 @@ class ImageDownloaderGUI:
 
         # Submit and Hold buttons (bottom right)
         button_frame = ttk.Frame(right_frame)
-        button_frame.pack(side="bottom", anchor="se")
+        button_frame.pack(side="bottom", anchor="e")
         submit_button = tk.Button(
             button_frame, text="Submit", bg="green", fg="white", width=14, font=("arial.ttf", 14),
             command=lambda: self.process_image(
