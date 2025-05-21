@@ -209,31 +209,39 @@ class ImageDownloaderGUI:
 
         catalog_window = tk.Toplevel(self.root)
         catalog_window.title("Catalog Images")
-        # Maximize window using geometry
-        screen_width = catalog_window.winfo_screenwidth()
-        screen_height = catalog_window.winfo_screenheight()
-        catalog_window.geometry(f"{screen_width}x{screen_height - 40}+0+0")  # Subtract 40px for taskbar
-
-        # Exit maximized window with Escape key
+        # Maximize window using zoomed, then geometry
+        try:
+            catalog_window.state('zoomed')
+        except:
+            screen_width = catalog_window.winfo_screenwidth()
+            screen_height = catalog_window.winfo_screenheight()
+            catalog_window.geometry(f"{screen_width}x{screen_height - 40}+0+0")  # Subtract 40px for taskbar
+        #Exit maximized window with Escape key
         catalog_window.bind('<Escape>', lambda e: catalog_window.destroy())
 
         self.current_image_index = 0
+        self.is_zoomed = False
 
         # Main frame
         main_frame = ttk.Frame(catalog_window)
         main_frame.pack(fill="both", expand=True)
 
         # Image display on left
-        self.image_label = tk.Label(main_frame)
-        self.image_label.pack(side="left", padx=20, pady=20)
+        image_frame = ttk.Frame(main_frame)
+        image_frame.pack(side="left", padx=20, pady=20)
+        self.image_label = tk.Label(image_frame)
+        self.image_label.pack(side="top")
+        self.image_label.bind("<Button-1>", lambda e: self.toggle_zoom(e, catalog_folder, images, catalog_window))
+        self.filename_label = tk.Label(image_frame, text="", font=("arial.ttf", 12))
+        self.filename_label.pack(side="top", padx=20, pady=5)
 
         # Right frame for buttons and checkboxes
         right_frame = ttk.Frame(main_frame)
-        right_frame.pack(side="right", padx=20, pady=20, fill="y")
+        right_frame.pack(side="left", padx=20, pady=20, fill="y")
 
         # BWU Type (top right, mutually exclusive)
         bwu_frame = ttk.Frame(right_frame)
-        bwu_frame.pack(side="top", anchor="center")
+        bwu_frame.pack(side="top", anchor="nw")
         bwu_label = tk.Label(bwu_frame, text="BWU Type:", font=("arial.ttf", 12))
         bwu_label.pack(side="left")
         self.bwu_var = tk.StringVar(value="")
@@ -242,7 +250,7 @@ class ImageDownloaderGUI:
             "SS Flaps", "Door Slim 12/15", "Door Oval 12/15", "Other"
         ]
         for bwu_type in bwu_types:
-            rb = tk.Radiobutton(bwu_frame, text=bwu_type, variable=self.bwu_var, value=bwu_type, font=("arial.ttf", 12), padx=2, pady=5)
+            rb = tk.Radiobutton(bwu_frame, text=bwu_type, activeforeground='white', variable=self.bwu_var, value=bwu_type, font=("arial.ttf", 11), padx=2, pady=5)
             rb.pack(side="left", padx=2)
 
         # Detected Defects (middle right, non-mutually exclusive)
@@ -295,17 +303,20 @@ class ImageDownloaderGUI:
             # Clear image and show message
             self.image_label.config(image=None)
             self.image_label.config(text="No more images to catalog!", font=("arial.ttf", 24))
+            self.filename_label.config(text="")  # Clear file name
             return
 
         image_path = os.path.join(catalog_folder, images[self.current_image_index])
         try:
-            # Load and resize image to fit window
+            # Load and resize image to default thumbnail size
             img = Image.open(image_path)
-            max_size = (800, 600)  # Adjust based on screen size
+            max_size = (800, 600)
             img.thumbnail(max_size, Image.Resampling.LANCZOS)
             photo = ImageTk.PhotoImage(img)
             self.image_label.config(image=photo, text="")
             self.image_label.image = photo  # Keep reference
+            # Update file name label
+            self.filename_label.config(text=images[self.current_image_index])
             # Reset checkboxes and number entries
             self.bwu_var.set("")
             for var in self.defect_vars.values():
@@ -315,6 +326,7 @@ class ImageDownloaderGUI:
         except Exception as e:
             logging.error(f"Error loading image {image_path}: {e}")
             self.image_label.config(text="Error loading image", font=("Arial", 20))
+            self.filename_label.config(text="")  # Clear file name on error
 
     def process_image(self, catalog_folder, images, processed_folder, hold_folder, catalog_window, action):
         if self.current_image_index >= len(images):
@@ -378,6 +390,31 @@ class ImageDownloaderGUI:
         except Exception as e:
             logging.error(f"Error saving to Excel for {image_name}: {e}")
             messagebox.showerror("Error", f"Failed to save Excel data: {e}")
+
+    def toggle_zoom(self, event, catalog_folder, images, catalog_window):
+        if self.current_image_index >= len(images):
+            return
+
+        image_path = os.path.join(catalog_folder, images[self.current_image_index])
+        try:
+            img = Image.open(image_path)
+            if not self.is_zoomed:
+                # Zoom to 2x the thumbnail size, constrained by screen
+                screen_width = catalog_window.winfo_screenwidth()
+                screen_height = catalog_window.winfo_screenheight()
+                max_zoom_size = (min(1920, screen_width - 40), min(1080, screen_height - 100))
+                img.thumbnail(max_zoom_size, Image.Resampling.LANCZOS)
+            else:
+                # Return to default thumbnail size
+                max_size = (800, 600)
+                img.thumbnail(max_size, Image.Resampling.LANCZOS)
+
+            photo = ImageTk.PhotoImage(img)
+            self.image_label.config(image=photo)
+            self.image_label.image = photo  # Keep reference
+            self.is_zoomed = not self.is_zoomed
+        except Exception as e:
+            logging.error(f"Error toggling zoom for {image_path}: {e}")
 
 def start_gui():
     root = tk.Tk()
