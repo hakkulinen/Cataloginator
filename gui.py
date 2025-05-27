@@ -300,7 +300,7 @@ class ImageDownloaderGUI:
                 entry.pack(side="left", padx=5)
                 self.number_entries[defect] = entry
 
-        # OK, Hold, and Submit buttons (bottom right)
+        # OK, Hold, and Submit buttons (bottom right, in a row)
         button_frame = ttk.Frame(right_frame)
         button_frame.pack(side="bottom", anchor="e")
         ok_button = tk.Button(
@@ -309,21 +309,21 @@ class ImageDownloaderGUI:
                 catalog_folder, images, processed_folder, hold_folder, catalog_window, "ok"
             )
         )
-        ok_button.pack(side="bottom", pady=10)
+        ok_button.pack(side="left", padx=5, pady=10)
         hold_button = tk.Button(
             button_frame, text="Hold", bg="yellow", fg="black", width=14, font=("arial.ttf", 14),
             command=lambda: self.process_image(
                 catalog_folder, images, processed_folder, hold_folder, catalog_window, "hold"
             )
         )
-        hold_button.pack(side="bottom", pady=10)
+        hold_button.pack(side="left", padx=5, pady=10)
         submit_button = tk.Button(
             button_frame, text="Submit", bg="red", fg="white", width=14, font=("arial.ttf", 14),
             command=lambda: self.process_image(
                 catalog_folder, images, processed_folder, hold_folder, catalog_window, "processed"
             )
         )
-        submit_button.pack(side="bottom", pady=10)
+        submit_button.pack(side="left", padx=5, pady=10)
 
         # Load first image
         self.load_image(catalog_folder, images, catalog_window)
