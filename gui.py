@@ -17,8 +17,8 @@ import config
 class ImageDownloaderGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("Excel Pictures Extractor")
-        self.root.geometry("500x500")
+        self.root.title("Cataloginator")
+        self.root.geometry("600x600")
         self.root.resizable(False, False)
 
         # Create notebook for tabs
