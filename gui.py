@@ -5,7 +5,7 @@ import os
 import threading
 import logging
 from queue import Queue, Empty
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageDraw, ImageFont
 import shutil
 from pathlib import Path
 import openpyxl
@@ -191,19 +191,26 @@ class ImageDownloaderGUI:
 
     def initialize_excel_report(self, catalog_folder):
         self.excel_path = Path("./") / "catalog_report.xlsx"
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws.title = "Catalog Report"
-        headers = [
-            "bwu", "region", "Outlet number", "Scene id", "BWU type",
-            "Legislation issue", "Switched off", "Header", "Screen/SAS", "Exterior frame",
-            "Shelves light", "Number", "Shelfstrip (base)", "Number", "Shelfstrip (insert)",
-            "Number", "Adjust height of shelves", "No holders of packs", "Other"
-        ]
-        for col, header in enumerate(headers, 1):
-            ws[f"{get_column_letter(col)}1"] = header
-        wb.save(self.excel_path)
-        logging.debug(f"Initialized Excel report at {self.excel_path}")
+        if self.excel_path.exists():
+            wb = openpyxl.load_workbook(self.excel_path)
+            ws = wb.active
+            logging.debug(f"Loaded existing Excel report at {self.excel_path}")
+        else:
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "Catalog Report"
+            headers = [
+                "bwu", "region", "Outlet number", "Scene id", "BWU type",
+                "Switched off", "Legislation Issue", "Visible content in header", "Short vertical flap insert",
+                "Header not working", "Low visibility of content in header", "Shelf Light",
+                "Physical damage", "Number", "Adjust height of shelves", "Shelfstrip base", "Number",
+                "Shelfstrip insert", "Number", "Free Defect 1", "Free Defect Type 1", "Free Defect 2", "Free Defect Type 2",
+                "Free Defect 3", "Free Defect Type 3",
+            ]
+            for col, header in enumerate(headers, 1):
+                ws[f"{get_column_letter(col)}1"] = header
+            wb.save(self.excel_path)
+            logging.debug(f"Initialized new Excel report at {self.excel_path}")
 
     def open_cataloging_window(self, catalog_folder, images, processed_folder, hold_folder):
 
@@ -272,9 +279,10 @@ class ImageDownloaderGUI:
         self.defect_vars = {}
         self.number_entries = {}
         defect_types = [
-            "Legislation issue", "Switched-off", "Header", "Screen/SAS", "Exterior frame",
-            "Shelves light", "Shelfstrip (base)", "Shelfstrip (insert)", "Adjust height of shelves",
-            "No holders for packs", "Other"
+            "Switched off", "Legislation Issue", "Visible content in header", "Short vertical flap insert",
+            "Header not working", "Low visibility of content in header", "Shelf Light",
+            "Physical damage", "Adjust height of shelves", "Shelfstrip base", "Shelfstrip insert",
+            "Free defect name 1", "Free defect name 2", "Free defect name 3"
         ]
         for defect in defect_types:
             var = tk.BooleanVar(value=False)
@@ -283,28 +291,39 @@ class ImageDownloaderGUI:
             row_frame.pack(fill="x", pady=2)
             cb = tk.Checkbutton(row_frame, text=defect, variable=var, font=("arial.ttf", 12), padx=5, pady=5)
             cb.pack(side="left")
-            if defect in ["Shelves light", "Shelfstrip (base)", "Shelfstrip (insert)"]:
+            if defect in ["Physical damage", "Shelfstrip base", "Shelfstrip insert"]:
                 entry = tk.Entry(row_frame, width=7, font=("arial.ttf", 12))
                 entry.pack(side="left", padx=5)
                 self.number_entries[defect] = entry
+            elif defect in ["Free defect name 1", "Free defect name 2", "Free defect name 3"]:
+                entry = tk.Entry(row_frame, width=20, font=("arial.ttf", 12))
+                entry.pack(side="left", padx=5)
+                self.number_entries[defect] = entry
 
-        # Submit and Hold buttons (bottom right)
+        # OK, Hold, and Submit buttons (bottom right)
         button_frame = ttk.Frame(right_frame)
         button_frame.pack(side="bottom", anchor="e")
-        submit_button = tk.Button(
-            button_frame, text="Submit", bg="green", fg="white", width=14, font=("arial.ttf", 14),
+        ok_button = tk.Button(
+            button_frame, text="OK", bg="green", fg="white", width=14, font=("arial.ttf", 14),
             command=lambda: self.process_image(
-                catalog_folder, images, processed_folder, hold_folder, catalog_window, "processed"
+                catalog_folder, images, processed_folder, hold_folder, catalog_window, "ok"
             )
         )
-        submit_button.pack(side="bottom", pady=10)
+        ok_button.pack(side="bottom", pady=10)
         hold_button = tk.Button(
-            button_frame, text="Hold", bg="red", fg="white", width=14, font=("arial.ttf", 14),
+            button_frame, text="Hold", bg="yellow", fg="black", width=14, font=("arial.ttf", 14),
             command=lambda: self.process_image(
                 catalog_folder, images, processed_folder, hold_folder, catalog_window, "hold"
             )
         )
         hold_button.pack(side="bottom", pady=10)
+        submit_button = tk.Button(
+            button_frame, text="Submit", bg="red", fg="white", width=14, font=("arial.ttf", 14),
+            command=lambda: self.process_image(
+                catalog_folder, images, processed_folder, hold_folder, catalog_window, "processed"
+            )
+        )
+        submit_button.pack(side="bottom", pady=10)
 
         # Load first image
         self.load_image(catalog_folder, images, catalog_window)
@@ -314,7 +333,7 @@ class ImageDownloaderGUI:
             # Clear image and show message
             self.image_label.config(image=None)
             self.image_label.config(text="No more images to catalog!", font=("arial.ttf", 24))
-            self.filename_label.config(text="")  # Clear file name
+            self.filename_label.config(text="")
             return
 
         image_path = os.path.join(catalog_folder, images[self.current_image_index])
@@ -328,6 +347,8 @@ class ImageDownloaderGUI:
             self.image_label.image = photo  # Keep reference
             # Update file name label
             self.filename_label.config(text=images[self.current_image_index])
+            # Reset zoom state
+            self.zoom_level = 0
             # Reset checkboxes and number entries
             self.bwu_var.set("")
             for var in self.defect_vars.values():
@@ -337,7 +358,7 @@ class ImageDownloaderGUI:
         except Exception as e:
             logging.error(f"Error loading image {image_path}: {e}")
             self.image_label.config(text="Error loading image", font=("Arial", 20))
-            self.filename_label.config(text="")  # Clear file name on error
+            self.filename_label.config(text="")
 
     def process_image(self, catalog_folder, images, processed_folder, hold_folder, catalog_window, action):
         if self.current_image_index >= len(images):
@@ -345,19 +366,29 @@ class ImageDownloaderGUI:
 
         current_image = images[self.current_image_index]
         source_path = os.path.join(catalog_folder, current_image)
-        dest_folder = processed_folder if action == "processed" else hold_folder
+        ok_folder = Path("./") / "ok"
+        if action == "ok":
+            ok_folder.mkdir(exist_ok=True)
+            dest_folder = ok_folder
+        else:
+            dest_folder = processed_folder if action == "processed" else hold_folder
         dest_path = os.path.join(dest_folder, current_image)
 
         try:
-            # Save to Excel only on Submit
+            # Save to Excel and add defects to image only on Submit
             if action == "processed":
                 self.save_to_excel(current_image)
-            # Move image
-            shutil.move(source_path, dest_path)
-            logging.debug(f"Moved {current_image} to {action} folder")
+                self.draw_defects_on_image(source_path)
+            # Copy for OK, move for others
+            if action == "ok":
+                shutil.move(source_path, dest_path)
+                logging.debug(f"Copied {current_image} to ok folder")
+            else:
+                shutil.move(source_path, dest_path)
+                logging.debug(f"Moved {current_image} to {action} folder")
         except Exception as e:
-            logging.error(f"Error moving {current_image} to {action} folder: {e}")
-            messagebox.showerror("Error", f"Failed to move {current_image}: {e}")
+            logging.error(f"Error processing {current_image} to {action} folder: {e}")
+            messagebox.showerror("Error", f"Failed to process {current_image}: {e}")
             return
 
         # Move to next image
@@ -382,15 +413,19 @@ class ImageDownloaderGUI:
                 bwu, region, outlet, scene, self.bwu_var.get()
             ]
             defect_types = [
-                "Legislation issue", "Switched-off", "Header", "Screen/SAS", "Exterior frame",
-                "Shelves light", "Shelfstrip (base)", "Shelfstrip (insert)", "Adjust height of shelves",
-                "No holders for packs", "Other"
+                "Switched off", "Legislation Issue", "Visible content in header", "Short vertical flap insert",
+                "Header not working", "Low visibility of content in header", "Shelf Light",
+                "Physical damage", "Adjust height of shelves", "Shelfstrip base", "Shelfstrip insert",
+                "Free defect name 1", "Free defect name 2", "Free defect name 3"
             ]
             for defect in defect_types:
                 data.append("Y" if self.defect_vars[defect].get() else "")
-                if defect in self.number_entries:
+                if defect in ["Physical damage", "Shelfstrip base", "Shelfstrip insert"]:
                     number = self.number_entries[defect].get().strip()
                     data.append(number if number else "")
+                elif defect in ["Free defect name 1", "Free defect name 2", "Free defect name 3"]:
+                    name = self.number_entries[defect].get().strip()
+                    data.append(name if name else "")
 
             # Write to Excel
             for col, value in enumerate(data, 1):
@@ -402,6 +437,47 @@ class ImageDownloaderGUI:
             logging.error(f"Error saving to Excel for {image_name}: {e}")
             messagebox.showerror("Error", f"Failed to save Excel data: {e}")
 
+    def draw_defects_on_image(self, image_path):
+        try:
+            img = Image.open(image_path)
+            draw = ImageDraw.Draw(img)
+            try:
+                font = ImageFont.truetype("arial.ttf", 30)
+            except:
+                font = ImageFont.load_default()
+
+            # Get selected defects (names only, no numbers)
+            selected_defects = [
+                defect if defect not in ["Free defect name 1", "Free defect name 2", "Free defect name 3"]
+                else self.number_entries[defect].get().strip()
+                for defect in self.defect_vars
+                if self.defect_vars[defect].get() and (
+                        defect not in ["Physical damage", "Shelfstrip base", "Shelfstrip insert"]
+                        or self.number_entries[defect].get().strip() == ""
+                )
+            ]
+            selected_defects = [d for d in selected_defects if d]  # Remove empty strings
+
+            # Prepare text
+            defect_text = "\n".join(selected_defects)
+            if not defect_text:
+                img.save(image_path, 'JPEG')
+                return
+
+            # Get image dimensions
+            img_width, img_height = img.size
+            # Calculate text position (bottom-left, in bottom half)
+            padding = 10
+            text_y = max(img_height // 2, img_height - (len(selected_defects) * 40 + padding))
+            text_x = padding
+
+            # Draw yellow text
+            draw.text((text_x, text_y), defect_text, fill=(255, 255, 0), font=font)
+            img.save(image_path, 'JPEG')
+            logging.debug(f"Added defects to {image_path}")
+        except Exception as e:
+            logging.error(f"Error adding defects to {image_path}: {e}")
+
     def toggle_zoom(self, event, catalog_folder, images, catalog_window):
         if self.current_image_index >= len(images):
             return
@@ -409,21 +485,81 @@ class ImageDownloaderGUI:
         image_path = os.path.join(catalog_folder, images[self.current_image_index])
         try:
             img = Image.open(image_path)
-            if not self.is_zoomed:
-                # Zoom to 2x the thumbnail size, constrained by screen
-                screen_width = catalog_window.winfo_screenwidth()
-                screen_height = catalog_window.winfo_screenheight()
-                max_zoom_size = (min(1920, screen_width - 40), min(1080, screen_height - 100))
-                img.thumbnail(max_zoom_size, Image.Resampling.LANCZOS)
-            else:
-                # Return to default thumbnail size
+            screen_width = catalog_window.winfo_screenwidth()
+            screen_height = catalog_window.winfo_screenheight()
+
+            # Cycle through zoom levels: 0 (thumbnail), 1 (full size with scroll wheel zoom)
+            self.zoom_level = config.flip(self.zoom_level)
+
+            if self.zoom_level == 0:
+                # Thumbnail size
                 max_size = (800, 600)
                 img.thumbnail(max_size, Image.Resampling.LANCZOS)
+                photo = ImageTk.PhotoImage(img)
+                self.image_label.config(image=photo)
+                self.image_label.image = photo  # Keep reference
+            elif self.zoom_level == 1:
+                # Full size with scroll wheel zoom in new window
+                zoom_window = tk.Toplevel(catalog_window)
+                zoom_window.title("Zoomed Image")
+                # Set window size to fit within screen
+                window_width = min(img.size[0], screen_width - 40)
+                window_height = min(img.size[1], screen_height - 100)
+                zoom_window.geometry(f"{window_width}x{window_height}+0+0")
+                # Make window transient and grab focus
+                zoom_window.transient(catalog_window)
+                zoom_window.focus_set()
+                # Close on Escape or click
+                zoom_window.bind('<Escape>', lambda e: zoom_window.destroy())
+                # Canvas for scrollable image
+                canvas = tk.Canvas(zoom_window, width=window_width, height=window_height)
+                canvas.pack(side="top", fill="both", expand=True)
+                h_scrollbar = ttk.Scrollbar(zoom_window, orient="horizontal", command=canvas.xview)
+                h_scrollbar.pack(side="bottom", fill="x")
+                v_scrollbar = ttk.Scrollbar(zoom_window, orient="vertical", command=canvas.yview)
+                v_scrollbar.pack(side="right", fill="y")
+                canvas.configure(xscrollcommand=h_scrollbar.set, yscrollcommand=v_scrollbar.set)
+                # Initialize zoom scale
+                self.current_zoom = 1.0
+                # Store original image for zooming
+                self.zoom_image = img
+                # Image label
+                photo = ImageTk.PhotoImage(img)
+                image_label = tk.Label(canvas, image=photo)
+                canvas.create_window((0, 0), window=image_label, anchor="nw")
+                image_label.image = photo  # Keep reference
+                # Update scroll region
+                canvas.configure(scrollregion=(0, 0, img.size[0], img.size[1]))
 
-            photo = ImageTk.PhotoImage(img)
-            self.image_label.config(image=photo)
-            self.image_label.image = photo  # Keep reference
-            self.is_zoomed = not self.is_zoomed
+                # Scroll wheel zoom
+                def zoom(event):
+                    logging.debug(f"Scroll event detected: delta={getattr(event, 'delta', 0)}")
+                    # Adjust zoom level
+                    if getattr(event, 'delta', 0) > 0 or event.num == 4:
+                        self.current_zoom *= 1.1  # Zoom in
+                    elif getattr(event, 'delta', 0) < 0 or event.num == 5:
+                        self.current_zoom /= 1.1  # Zoom out
+                    self.current_zoom = max(0.1, min(self.current_zoom, 5.0))  # Limit zoom range
+                    # Resize image
+                    new_width = int(img.size[0] * self.current_zoom)
+                    new_height = int(img.size[1] * self.current_zoom)
+                    zoomed_img = self.zoom_image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                    photo = ImageTk.PhotoImage(zoomed_img)
+                    image_label.config(image=photo)
+                    image_label.image = photo  # Keep reference
+                    # Update scroll region
+                    canvas.configure(scrollregion=(0, 0, new_width, new_height))
+
+                # Bind scroll wheel to canvas and label (Windows and Linux)
+                for widget in (canvas, image_label):
+                    widget.bind("<MouseWheel>", zoom)  # Windows
+                    widget.bind("<Button-4>", lambda e: zoom(type('event', (), {'num': 4})))  # Linux scroll up
+                    widget.bind("<Button-5>", lambda e: zoom(type('event', (), {'num': 5})))  # Linux scroll down
+                # Keyboard zoom fallback
+                zoom_window.bind('<Control-plus>', lambda e: zoom(type('event', (), {'num': 4})))
+                zoom_window.bind('<Control-minus>', lambda e: zoom(type('event', (), {'num': 5})))
+                # Close window on click and reset zoom level
+                image_label.bind("<Button-1>", lambda e: [zoom_window.destroy(), setattr(self, 'zoom_level', -1)])
         except Exception as e:
             logging.error(f"Error toggling zoom for {image_path}: {e}")
 
