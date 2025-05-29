@@ -20,6 +20,12 @@ class ImageDownloaderGUI:
         self.root.title("Cataloginator")
         self.root.geometry("600x600")
         self.root.resizable(False, False)
+        # Set custom icon for main window
+        try:
+            icon_path = os.path.join(os.path.dirname(__file__), "cataloginator.ico")
+            self.root.iconbitmap(icon_path)
+        except Exception as e:
+            logging.warning(f"Failed to set main window icon: {e}")
 
         # Create notebook for tabs
         self.notebook = ttk.Notebook(self.root)
@@ -201,21 +207,70 @@ class ImageDownloaderGUI:
             ws.title = "Catalog Report"
             headers = [
                 "bwu", "region", "Outlet number", "Scene id", "BWU type",
-                "Switched off", "Legislation Issue", "Visible content in header", "Short vertical flap insert",
-                "Header not working", "Low visibility of content in header", "Shelf Light",
-                "Physical damage", "Number", "Adjust height of shelves", "Shelfstrip base", "Number",
-                "Shelfstrip insert", "Number", "Free Defect 1", "Free Defect Type 1", "Free Defect 2", "Free Defect Type 2",
-                "Free Defect 3", "Free Defect Type 3",
+                "Switched OFF", "Screen/SAS", "Header not working", "Low visibility in header",
+                "Shelf light", "Adjust shelves", "Top shelf", "Legal issue",
+                "Visible content in header", "Short vertical insert", "Physical damage",
+                "Header broken", "BWU not closing", "Broken flap", "Missing shelf",
+                "Shelf strip base", "Shelf-strip insert", "Гнушка", "No POSM",
+                "Header possible to install", "EMPTY 1", "EMPTY 2", "EMPTY 3",
+                "EMPTY 4", "EMPTY 5", "Comment"
             ]
             for col, header in enumerate(headers, 1):
                 ws[f"{get_column_letter(col)}1"] = header
+
+            # Set custom column widths
+            column_widths = {
+                'A': 15,  # bwu
+                'B': 15,  # region
+                'C': 15,  # Outlet number
+                'D': 15,  # Scene id
+                'E': 20,  # BWU type
+                'F': 25,  # Switched OFF
+                'G': 25,  # Screen/SAS
+                'H': 25,  # Header not working
+                'I': 25,  # Low visibility in header
+                'J': 25,  # Shelf light
+                'K': 25,  # Adjust shelves
+                'L': 25,  # Top shelf
+                'M': 25,  # Legal issue
+                'N': 25,  # Visible content in header
+                'O': 25,  # Short vertical insert
+                'P': 25,  # Physical damage
+                'Q': 25,  # Header broken
+                'R': 25,  # BWU not closing
+                'S': 25,  # Broken flap
+                'T': 25,  # Missing shelf
+                'U': 25,  # Shelf strip base
+                'V': 25,  # Shelf-strip insert
+                'W': 25,  # Гнушка
+                'X': 25,  # No POSM
+                'Y': 25,  # Header possible to install
+                'Z': 15,  # EMPTY 1
+                'AA': 15, # EMPTY 2
+                'AB': 15, # EMPTY 3
+                'AC': 15, # EMPTY 4
+                'AD': 15, # EMPTY 5
+                'AE': 50  # Comment
+            }
+            for col_letter, width in column_widths.items():
+                ws.column_dimensions[col_letter].width = width
+
+            # Set custom row height for all rows
+            for row in range(1, ws.max_row + 1):
+                ws.row_dimensions[row].height = 20
+
             wb.save(self.excel_path)
             logging.debug(f"Initialized new Excel report at {self.excel_path}")
 
     def open_cataloging_window(self, catalog_folder, images, processed_folder, hold_folder):
-
         catalog_window = tk.Toplevel(self.root)
         catalog_window.title("Catalog Images")
+        # Set custom icon for cataloging window
+        try:
+            icon_path = os.path.join(os.path.dirname(__file__), "cataloginator.png")
+            catalog_window.iconbitmap(icon_path)
+        except Exception as e:
+            logging.warning(f"Failed to set cataloging window icon: {e}")
         # Maximize window using zoomed, then geometry
         try:
             catalog_window.state('zoomed')
@@ -223,7 +278,7 @@ class ImageDownloaderGUI:
             screen_width = catalog_window.winfo_screenwidth()
             screen_height = catalog_window.winfo_screenheight()
             catalog_window.geometry(f"{screen_width}x{screen_height - 40}+0+0")  # Subtract 40px for taskbar
-        #Exit maximized window with Escape key
+        # Exit maximized window with Escape key
         catalog_window.bind('<Escape>', lambda e: catalog_window.destroy())
 
         self.current_image_index = 0
@@ -242,91 +297,142 @@ class ImageDownloaderGUI:
         self.filename_label = tk.Label(image_frame, text="", font=("arial.ttf", 12))
         self.filename_label.pack(side="top", padx=20, pady=5)
 
-        # Right frame for buttons and checkboxes
+        # Center frame for OK, Hold, Submit buttons
+        center_frame = ttk.Frame(main_frame)
+        center_frame.pack(side="left", fill="both", expand=False)
+        # Inner frame to center buttons vertically
+        button_container = ttk.Frame(center_frame)
+        button_container.pack(expand=True)
+        # OK, Hold, and Submit buttons (in center, vertical layout)
+        ok_button = tk.Button(
+            button_container, text="OK", bg="green", fg="white", width=14, font=("arial.ttf", 14),
+            command=lambda: self.process_image(
+                catalog_folder, images, processed_folder, hold_folder, catalog_window, "ok"
+            )
+        )
+        ok_button.pack(pady=10)
+        hold_button = tk.Button(
+            button_container, text="Hold", bg="yellow", fg="black", width=14, font=("arial.ttf", 14),
+            command=lambda: self.process_image(
+                catalog_folder, images, processed_folder, hold_folder, catalog_window, "hold"
+            )
+        )
+        hold_button.pack(pady=10)
+        submit_button = tk.Button(
+            button_container, text="Submit", bg="red", fg="white", width=14, font=("arial.ttf", 14),
+            command=lambda: self.process_image(
+                catalog_folder, images, processed_folder, hold_folder, catalog_window, "processed"
+            )
+        )
+        submit_button.pack(pady=10)
+
+        # Right frame for BWU types and defects
         right_frame = ttk.Frame(main_frame)
         right_frame.pack(side="left", padx=20, pady=20, fill="y")
 
         # BWU Type (top right, mutually exclusive)
         bwu_frame = ttk.Frame(right_frame)
-        bwu_frame.pack(side="top", anchor="e")
+        bwu_frame.pack(side="top", anchor="w")
         bwu_label = tk.Label(bwu_frame, text="BWU Type:", font=("arial.ttf", 14))
-        bwu_label.pack(side="left")
+        bwu_label.pack(side="top", anchor="w")
         self.bwu_var = tk.StringVar(value="")
         bwu_types = [
-            "PRO", "X", "Mini", "X flap", "Mini flap", "A2", "Pr 12/15",
-            "SS Flaps", "Door Slim 12/15", "Door Oval 12/15", "Other"
+            "PRO\n", "X\n", "Mini\n", "X\nFLAP", "Mini\nFLAP", "A2\nPr 12/15",
+            "SS\nFlaps", "Door\nSlim", "Door\nOval", "Other\n"
         ]
-        # Top row (first 6 radiobuttons)
+        # Top row (first 5 buttons)
         bwu_top_row = ttk.Frame(bwu_frame)
         bwu_top_row.pack(side="top")
-        for bwu_type in bwu_types[:7]:
-            rb = tk.Radiobutton(bwu_top_row, text=bwu_type, variable=self.bwu_var, value=bwu_type,
-                                font=("arial.ttf", 12), padx=2, pady=5)
-            rb.pack(side="left", padx=2)
-        # Bottom row (last 5 radiobuttons)
+        # Bottom row (last 5 buttons)
         bwu_bottom_row = ttk.Frame(bwu_frame)
         bwu_bottom_row.pack(side="top")
-        for bwu_type in bwu_types[7:]:
-            rb = tk.Radiobutton(bwu_bottom_row, text=bwu_type, variable=self.bwu_var, value=bwu_type,
-                                font=("arial.ttf", 12), padx=2, pady=5)
-            rb.pack(side="left", padx=2)
+        self.bwu_buttons = {}
+
+        def select_bwu(bwu_type):
+            self.bwu_var.set(bwu_type)
+            for btn_type, btn in self.bwu_buttons.items():
+                btn.config(
+                    bg="red" if btn_type == bwu_type else "gray",
+                    activebackground="red" if btn_type == bwu_type else "gray"
+                )
+
+        for i, bwu_type in enumerate(bwu_types):
+            target_row = bwu_top_row if i < 5 else bwu_bottom_row
+            button = tk.Button(
+                target_row,
+                text=bwu_type,
+                bg="gray",
+                fg="white",
+                activebackground="gray",
+                activeforeground="white",
+                font=("arial.ttf", 12),
+                width=10,
+                anchor="center",
+                relief="raised",
+                command=lambda t=bwu_type: select_bwu(t)
+            )
+            button.pack(side="left", padx=2, pady=5)
+            self.bwu_buttons[bwu_type] = button
 
         # Detected Defects (middle right, non-mutually exclusive)
         defects_frame = ttk.Frame(right_frame)
-        defects_frame.pack(pady=40, anchor="e")
+        defects_frame.pack(pady=20, anchor="w")
         defects_label = tk.Label(defects_frame, text="Detected defects:", font=("arial.ttf", 15))
-        defects_label.pack(anchor="e")
+        defects_label.pack(anchor="w")
         self.defect_vars = {}
-        self.number_entries = {}
-        defect_types = [
-            "Switched off", "Legislation Issue", "Visible content in header", "Short vertical flap insert",
-            "Header not working", "Low visibility of content in header", "Shelf Light",
-            "Physical damage", "Adjust height of shelves", "Shelfstrip base", "Shelfstrip insert",
-            "Free defect name 1", "Free defect name 2", "Free defect name 3"
+        self.defect_buttons = {}
+        defect_rows = [
+            ["Switched\nOFF", "Screen/\nSAS"],
+            ["Header\nnot\nworking", "Low\nvisibility\nin header", "Shelf\nlight", "Adjust\nshelves", "Top\nshelf"],
+            ["Legal\nissue", "Visible\ncontent\nin header", "Short\nvertical\ninsert"],
+            ["Physical\ndamage", "Header\nbroken", "BWU not\nclosing", "Broken\nflap", "Missing\nshelf"],
+            ["Shelf\nstrip\nbase", "Shelf-strip\ninsert", "Гнушка", "No POSM"],
+            ["Header\npossible\nto install"],
+            ["EMPTY 1", "EMPTY 2", "EMPTY 3", "EMPTY 4", "EMPTY 5"]
         ]
-        for defect in defect_types:
-            var = tk.BooleanVar(value=False)
-            self.defect_vars[defect] = var
+
+        def toggle_defect(defect, var):
+            var.set(not var.get())
+            button = self.defect_buttons[defect]
+            button.config(
+                bg="red" if var.get() else "gray",
+                activebackground="red" if var.get() else "gray"
+            )
+
+        for row_defects in defect_rows:
             row_frame = ttk.Frame(defects_frame)
             row_frame.pack(fill="x", pady=2)
-            cb = tk.Checkbutton(row_frame, text=defect, variable=var, font=("arial.ttf", 12), padx=5, pady=5)
-            cb.pack(side="left")
-            if defect in ["Physical damage", "Shelfstrip base", "Shelfstrip insert"]:
-                entry = tk.Entry(row_frame, width=7, font=("arial.ttf", 12))
-                entry.pack(side="left", padx=5)
-                self.number_entries[defect] = entry
-            elif defect in ["Free defect name 1", "Free defect name 2", "Free defect name 3"]:
-                entry = tk.Entry(row_frame, width=20, font=("arial.ttf", 12))
-                entry.pack(side="left", padx=5)
-                self.number_entries[defect] = entry
+            for defect in row_defects:
+                var = tk.BooleanVar(value=False)
+                self.defect_vars[defect] = var
+                button = tk.Button(
+                    row_frame,
+                    text=defect,
+                    bg="gray",
+                    fg="white",
+                    activebackground="gray",
+                    activeforeground="white",
+                    font=("arial.ttf", 12),
+                    width=10,
+                    height=3,
+                    anchor="center",
+                    relief="raised",
+                    command=lambda d=defect, v=var: toggle_defect(d, v)
+                )
+                button.pack(side="left", padx=5, pady=5)
+                self.defect_buttons[defect] = button
 
-        # OK, Hold, and Submit buttons (bottom right, in a row)
-        button_frame = ttk.Frame(right_frame)
-        button_frame.pack(side="bottom", anchor="e")
-        ok_button = tk.Button(
-            button_frame, text="OK", bg="green", fg="white", width=14, font=("arial.ttf", 14),
-            command=lambda: self.process_image(
-                catalog_folder, images, processed_folder, hold_folder, catalog_window, "ok"
-            )
-        )
-        ok_button.pack(side="left", padx=5, pady=10)
-        hold_button = tk.Button(
-            button_frame, text="Hold", bg="yellow", fg="black", width=14, font=("arial.ttf", 14),
-            command=lambda: self.process_image(
-                catalog_folder, images, processed_folder, hold_folder, catalog_window, "hold"
-            )
-        )
-        hold_button.pack(side="left", padx=5, pady=10)
-        submit_button = tk.Button(
-            button_frame, text="Submit", bg="red", fg="white", width=14, font=("arial.ttf", 14),
-            command=lambda: self.process_image(
-                catalog_folder, images, processed_folder, hold_folder, catalog_window, "processed"
-            )
-        )
-        submit_button.pack(side="left", padx=5, pady=10)
+        # Comments field
+        comments_frame = ttk.Frame(right_frame)
+        comments_frame.pack(pady=10, anchor="w")
+        comments_label = tk.Label(comments_frame, text="Comments:", font=("arial.ttf", 12))
+        comments_label.pack(side="left")
+        self.comments_entry = tk.Entry(comments_frame, width=60, font=("arial.ttf", 12), bg="white")
+        self.comments_entry.pack(side="left", padx=5)
 
-        # Load first image
+        # Load first image and update window
         self.load_image(catalog_folder, images, catalog_window)
+        catalog_window.update()
 
     def load_image(self, catalog_folder, images, catalog_window):
         if self.current_image_index >= len(images):
@@ -349,12 +455,16 @@ class ImageDownloaderGUI:
             self.filename_label.config(text=images[self.current_image_index])
             # Reset zoom state
             self.zoom_level = 0
-            # Reset checkboxes and number entries
+            # Reset BWU, defect states, and comments
             self.bwu_var.set("")
+            for bwu_type, button in getattr(self, 'bwu_buttons', {}).items():
+                button.config(bg="gray", activebackground="gray")
             for var in self.defect_vars.values():
                 var.set(False)
-            for entry in self.number_entries.values():
-                entry.delete(0, tk.END)
+            for defect, button in getattr(self, 'defect_buttons', {}).items():
+                button.config(bg="gray", activebackground="gray")
+            if hasattr(self, 'comments_entry'):
+                self.comments_entry.delete(0, tk.END)
         except Exception as e:
             logging.error(f"Error loading image {image_path}: {e}")
             self.image_label.config(text="Error loading image", font=("Arial", 20))
@@ -410,22 +520,50 @@ class ImageDownloaderGUI:
 
             # Gather data
             data = [
-                bwu, region, outlet, scene, self.bwu_var.get()
+                bwu, region, outlet, scene, self.bwu_var.get().replace('\n', '')
             ]
             defect_types = [
-                "Switched off", "Legislation Issue", "Visible content in header", "Short vertical flap insert",
-                "Header not working", "Low visibility of content in header", "Shelf Light",
-                "Physical damage", "Adjust height of shelves", "Shelfstrip base", "Shelfstrip insert",
-                "Free defect name 1", "Free defect name 2", "Free defect name 3"
+                "Switched OFF", "Screen/SAS", "Header not working", "Low visibility in header",
+                "Shelf light", "Adjust shelves", "Top shelf", "Legal issue",
+                "Visible content in header", "Short vertical insert", "Physical damage",
+                "Header broken", "BWU not closing", "Broken flap", "Missing shelf",
+                "Shelf strip base", "Shelf-strip insert", "Гнушка", "No POSM",
+                "Header possible to install", "EMPTY 1", "EMPTY 2", "EMPTY 3",
+                "EMPTY 4", "EMPTY 5"
             ]
+            defect_mapping = {
+                "Switched\nOFF": "Switched OFF",
+                "Screen/\nSAS": "Screen/SAS",
+                "Header\nnot\nworking": "Header not working",
+                "Low\nvisibility\nin header": "Low visibility in header",
+                "Shelf\nlight": "Shelf light",
+                "Adjust\nshelves": "Adjust shelves",
+                "Top\nshelf": "Top shelf",
+                "Legal\nissue": "Legal issue",
+                "Visible\ncontent\nin header": "Visible content in header",
+                "Short\nvertical\ninsert": "Short vertical insert",
+                "Physical\ndamage": "Physical damage",
+                "Header\nbroken": "Header broken",
+                "BWU not\nclosing": "BWU not closing",
+                "Broken\nflap": "Broken flap",
+                "Missing\nshelf": "Missing shelf",
+                "Shelf\nstrip\nbase": "Shelf strip base",
+                "Shelf-strip\ninsert": "Shelf-strip insert",
+                "Гнушка": "Гнушка",
+                "No POSM": "No POSM",
+                "Header\npossible\nto install": "Header possible to install",
+                "EMPTY 1": "EMPTY 1",
+                "EMPTY 2": "EMPTY 2",
+                "EMPTY 3": "EMPTY 3",
+                "EMPTY 4": "EMPTY 4",
+                "EMPTY 5": "EMPTY 5"
+            }
             for defect in defect_types:
-                data.append("Y" if self.defect_vars[defect].get() else "")
-                if defect in ["Physical damage", "Shelfstrip base", "Shelfstrip insert"]:
-                    number = self.number_entries[defect].get().strip()
-                    data.append(number if number else "")
-                elif defect in ["Free defect name 1", "Free defect name 2", "Free defect name 3"]:
-                    name = self.number_entries[defect].get().strip()
-                    data.append(name if name else "")
+                ui_defect = next((k for k, v in defect_mapping.items() if v == defect), None)
+                data.append("Y" if ui_defect and self.defect_vars.get(ui_defect, tk.BooleanVar(value=False)).get() else "")
+            # Add comments
+            comment = self.comments_entry.get().strip() if hasattr(self, 'comments_entry') else ""
+            data.append(comment)
 
             # Write to Excel
             for col, value in enumerate(data, 1):
@@ -442,21 +580,15 @@ class ImageDownloaderGUI:
             img = Image.open(image_path)
             draw = ImageDraw.Draw(img)
             try:
-                font = ImageFont.truetype("arial.ttf", 30)
-            except:
+                font = ImageFont.truetype("arial.ttf", 20)
+            except Exception:
                 font = ImageFont.load_default()
 
-            # Get selected defects (names only, no numbers)
+            # Get selected defects
             selected_defects = [
-                defect if defect not in ["Free defect name 1", "Free defect name 2", "Free defect name 3"]
-                else self.number_entries[defect].get().strip()
-                for defect in self.defect_vars
-                if self.defect_vars[defect].get() and (
-                        defect not in ["Physical damage", "Shelfstrip base", "Shelfstrip insert"]
-                        or self.number_entries[defect].get().strip() == ""
-                )
+                defect.replace('\n', ' ') for defect in self.defect_vars
+                if self.defect_vars[defect].get()
             ]
-            selected_defects = [d for d in selected_defects if d]  # Remove empty strings
 
             # Prepare text
             defect_text = "\n".join(selected_defects)
@@ -466,13 +598,13 @@ class ImageDownloaderGUI:
 
             # Get image dimensions
             img_width, img_height = img.size
-            # Calculate text position (bottom-left, in bottom half)
+            # Calculate text position (bottom-left)
             padding = 10
-            text_y = max(img_height // 2, img_height - (len(selected_defects) * 40 + padding))
+            text_y = img_height - (len(selected_defects) * 25 + padding)
             text_x = padding
 
             # Draw yellow text
-            draw.text((text_x, text_y), defect_text, fill=(255, 255, 0), font=font)
+            draw.text((text_x, text_y), defect_text, fill="red", font=font)
             img.save(image_path, 'JPEG')
             logging.debug(f"Added defects to {image_path}")
         except Exception as e:
