@@ -209,10 +209,10 @@ class ImageDownloaderGUI:
                 "", "", "", "", "BWU",
                 "Switched OFF", "Screen/SAS", "Header not working", "Low visibility in header",
                 "Shelf light", "Adjust shelves", "Top shelf", "Legal issue",
-                "Visible content in header", "Short vertical insert", "Physical damage",
+                "Visible content in header", "Short vertical insert", "Shelf light on comp", "Physical damage",
                 "Header broken", "BWU not closing", "Broken flap", "Missing shelf",
-                "Shelf strip base", "Shelf-strip insert", "Гнушка", "No POSM",
-                "Header possible to install", "EMPTY 1", "EMPTY 2", "EMPTY 3",
+                "Shelf strip base", "Shelf-strip insert", "Гнушка", "No POSM", "Client price tag over shelfstrip",
+                "Header possible to install", "No content in Header", "EMPTY 1", "EMPTY 2", "EMPTY 3",
                 "EMPTY 4", "EMPTY 5", "Comment"
             ]
             for col, header in enumerate(headers, 1):
@@ -220,10 +220,10 @@ class ImageDownloaderGUI:
 
             # Set custom column widths
             column_widths = {
-                'A': 15,  # bwu
-                'B': 15,  # region
-                'C': 15,  # Outlet number
-                'D': 15,  # Scene id
+                'A': 20,  # bwu
+                'B': 20,  # region
+                'C': 20,  # Outlet number
+                'D': 20,  # Scene id
                 'E': 20,  # BWU type
                 'F': 25,  # Switched OFF
                 'G': 25,  # Screen/SAS
@@ -235,22 +235,25 @@ class ImageDownloaderGUI:
                 'M': 25,  # Legal issue
                 'N': 25,  # Visible content in header
                 'O': 25,  # Short vertical insert
-                'P': 25,  # Physical damage
-                'Q': 25,  # Header broken
-                'R': 25,  # BWU not closing
-                'S': 25,  # Broken flap
-                'T': 25,  # Missing shelf
-                'U': 25,  # Shelf strip base
-                'V': 25,  # Shelf-strip insert
-                'W': 25,  # Гнушка
-                'X': 25,  # No POSM
-                'Y': 25,  # Header possible to install
-                'Z': 15,  # EMPTY 1
-                'AA': 15, # EMPTY 2
-                'AB': 15, # EMPTY 3
-                'AC': 15, # EMPTY 4
-                'AD': 15, # EMPTY 5
-                'AE': 50  # Comment
+                'P': 25,  # Shelf light on comp
+                'Q': 25,  # Physical damage
+                'R': 25,  # Header broken
+                'S': 25,  # BWU not closing
+                'T': 25,  # Broken flap
+                'U': 25,  # Missing shelf
+                'V': 25,  # Shelf strip base
+                'W': 25,  # Shelf-strip insert
+                'X': 25,  # Гнушка
+                'Y': 25,  # No POSM
+                'Z': 30,  # Client price tag over shelfstrip
+                'AA': 25, # Header possible to install
+                'AB': 25, # No content in Header
+                'AC': 15, # EMPTY 1
+                'AD': 15, # EMPTY 2
+                'AE': 15, # EMPTY 3
+                'AF': 15, # EMPTY 4
+                'AG': 15, # EMPTY 5
+                'AH': 50  # Comment
             }
             for col_letter, width in column_widths.items():
                 ws.column_dimensions[col_letter].width = width
@@ -350,7 +353,7 @@ class ImageDownloaderGUI:
         # BWU Type (top, mutually exclusive, two rows of 5)
         bwu_frame = ttk.Frame(scrollable_frame)
         bwu_frame.pack(side="top", anchor="w", padx=5, pady=5)
-        bwu_label = tk.Label(bwu_frame, text="BWU Type:", font=("arial.ttf", 14))
+        bwu_label = tk.Label(bwu_frame, text="BWU Type:", font=("arial.ttf", 12))
         bwu_label.pack(side="top", anchor="w")
         self.bwu_var = tk.StringVar(value="")
         bwu_types = [
@@ -382,8 +385,9 @@ class ImageDownloaderGUI:
                 fg="white",
                 activebackground="gray",
                 activeforeground="white",
-                font=("arial.ttf", 12),
+                font=("arial.ttf", 10),
                 width=10,
+                height=2,
                 anchor="center",
                 relief="raised",
                 command=lambda t=bwu_type: select_bwu(t)
@@ -394,17 +398,17 @@ class ImageDownloaderGUI:
         # Detected Defects (middle, non-mutually exclusive)
         defects_frame = ttk.Frame(scrollable_frame)
         defects_frame.pack(pady=10, anchor="w", padx=5)
-        defects_label = tk.Label(defects_frame, text="Detected defects:", font=("arial.ttf", 15))
+        defects_label = tk.Label(defects_frame, text="Detected defects:", font=("arial.ttf", 12))
         defects_label.pack(anchor="w")
         self.defect_vars = {}
         self.defect_buttons = {}
         defect_rows = [
             ["Switched\nOFF", "Screen/\nSAS"],
             ["Header\nnot\nworking", "Low\nvisibility\nin header", "Shelf\nlight", "Adjust\nshelves", "Top\nshelf"],
-            ["Legal\nissue", "Visible\ncontent\nin header", "Short\nvertical\ninsert"],
+            ["Legal\nissue", "Visible\ncontent\nin header", "Short\nvertical\ninsert", "Shelf light\non comp"],
             ["Physical\ndamage", "Header\nbroken", "BWU not\nclosing", "Broken\nflap", "Missing\nshelf"],
-            ["Shelf\nstrip\nbase", "Shelf-strip\ninsert", "Гнушка", "No POSM"],
-            ["Header\npossible\nto install"],
+            ["Shelf\nstrip\nbase", "Shelf-strip\ninsert", "Гнушка", "No POSM", "Client price\ntag over\nshelfstrip"],
+            ["Header\npossible\nto install", "No content\nin header"],
             ["EMPTY 1", "EMPTY 2", "EMPTY 3", "EMPTY 4", "EMPTY 5"]
         ]
 
@@ -429,7 +433,7 @@ class ImageDownloaderGUI:
                     fg="white",
                     activebackground="gray",
                     activeforeground="white",
-                    font=("arial.ttf", 12),
+                    font=("arial.ttf", 10),
                     width=10,
                     height=3,
                     anchor="center",
@@ -542,10 +546,10 @@ class ImageDownloaderGUI:
             defect_types = [
                 "Switched OFF", "Screen/SAS", "Header not working", "Low visibility in header",
                 "Shelf light", "Adjust shelves", "Top shelf", "Legal issue",
-                "Visible content in header", "Short vertical insert", "Physical damage",
+                "Visible content in header", "Short vertical insert", "Shelf light on comp", "Physical damage",
                 "Header broken", "BWU not closing", "Broken flap", "Missing shelf",
-                "Shelf strip base", "Shelf-strip insert", "Гнушка", "No POSM",
-                "Header possible to install", "EMPTY 1", "EMPTY 2", "EMPTY 3",
+                "Shelf strip base", "Shelf-strip insert", "Гнушка", "No POSM", "Client price tag over shelfstrip",
+                "Header possible to install", "No content in Header", "EMPTY 1", "EMPTY 2", "EMPTY 3",
                 "EMPTY 4", "EMPTY 5"
             ]
             defect_mapping = {
@@ -559,6 +563,7 @@ class ImageDownloaderGUI:
                 "Legal\nissue": "Legal issue",
                 "Visible\ncontent\nin header": "Visible content in header",
                 "Short\nvertical\ninsert": "Short vertical insert",
+                "Shelf light\non comp": "Shelf light on comp",
                 "Physical\ndamage": "Physical damage",
                 "Header\nbroken": "Header broken",
                 "BWU not\nclosing": "BWU not closing",
@@ -568,7 +573,9 @@ class ImageDownloaderGUI:
                 "Shelf-strip\ninsert": "Shelf-strip insert",
                 "Гнушка": "Гнушка",
                 "No POSM": "No POSM",
+                "Client price\ntag over\nshelfstrip": "Client price tag over shelfstrip",
                 "Header\npossible\nto install": "Header possible to install",
+                "No content\nin header": "No content in Header",
                 "EMPTY 1": "EMPTY 1",
                 "EMPTY 2": "EMPTY 2",
                 "EMPTY 3": "EMPTY 3",
