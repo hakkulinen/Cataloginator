@@ -42,7 +42,7 @@ class ImageDownloaderGUI:
         self.setup_catalog_tab()
 
         # Footer label
-        self.footer_label = tk.Label(self.root, text="made by vP v0.5.0", font=("Arial", 8), fg="gray")
+        self.footer_label = tk.Label(self.root, text="made by vP v0.5.1", font=("Arial", 8), fg="gray")
         self.footer_label.pack(side="bottom", pady=5)
 
         # Queue for progress updates
