@@ -18,8 +18,8 @@ class ImageDownloaderGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Cataloginator")
-        self.root.geometry("600x600")
-        self.root.resizable(False, False)
+        self.root.minsize(400, 400)  # Set minimum size to prevent collapse
+        self.root.geometry("600x600")  # Initial size, can be resized
         # Set custom icon for main window
         try:
             icon_path = os.path.join(os.path.dirname(__file__), "cataloginator.ico")
@@ -42,7 +42,7 @@ class ImageDownloaderGUI:
         self.setup_catalog_tab()
 
         # Footer label
-        self.footer_label = tk.Label(self.root, text="made by vP v0.4", font=("Arial", 8), fg="gray")
+        self.footer_label = tk.Label(self.root, text="made by vP v0.5.0", font=("Arial", 8), fg="gray")
         self.footer_label.pack(side="bottom", pady=5)
 
         # Queue for progress updates
@@ -272,12 +272,13 @@ class ImageDownloaderGUI:
         except Exception as e:
             logging.warning(f"Failed to set cataloging window icon: {e}")
         # Maximize window using zoomed, then geometry
-        try:
-            catalog_window.state('zoomed')
-        except:
-            screen_width = catalog_window.winfo_screenwidth()
-            screen_height = catalog_window.winfo_screenheight()
-            catalog_window.geometry(f"{screen_width}x{screen_height - 40}+0+0")  # Subtract 40px for taskbar
+        # Set window size to 80% of screen dimensions
+        screen_width = catalog_window.winfo_screenwidth()
+        screen_height = catalog_window.winfo_screenheight()
+        window_width = int(screen_width * 0.8)
+        window_height = int(screen_height * 0.8)
+        catalog_window.geometry(f"{window_width}x{window_height}+{int(screen_width * 0.1)}+{int(screen_height * 0.1)}")
+        catalog_window.minsize(800, 600)  # Ensure minimum size for usability
         # Exit maximized window with Escape key
         catalog_window.bind('<Escape>', lambda e: catalog_window.destroy())
 
@@ -298,8 +299,9 @@ class ImageDownloaderGUI:
         self.filename_label.pack(side="top", padx=20, pady=5)
 
         # Center frame for OK, Hold, Submit buttons
-        center_frame = ttk.Frame(main_frame)
-        center_frame.pack(side="left", fill="both", expand=False)
+        center_frame = ttk.Frame(main_frame, width=150)  # Fixed width for buttons
+        center_frame.pack(side="left", fill="y")
+        center_frame.pack_propagate(False)  # Prevent frame from shrinking
         # Inner frame to center buttons vertically
         button_container = ttk.Frame(center_frame)
         button_container.pack(expand=True)
@@ -326,13 +328,28 @@ class ImageDownloaderGUI:
         )
         submit_button.pack(pady=10)
 
-        # Right frame for BWU types and defects
+        # Right frame with scrollable canvas for BWU types, defects, and comments
         right_frame = ttk.Frame(main_frame)
-        right_frame.pack(side="left", padx=20, pady=20, fill="y")
+        right_frame.pack(side="left", padx=10, pady=10, fill="both", expand=True)  # Expand to fill available space
+        canvas = tk.Canvas(right_frame)
+        canvas.pack(side="left", fill="both", expand=True)
+        v_scrollbar = ttk.Scrollbar(right_frame, orient="vertical", command=canvas.yview)
+        v_scrollbar.pack(side="right", fill="y")
+        h_scrollbar = ttk.Scrollbar(right_frame, orient="horizontal", command=canvas.xview)
+        h_scrollbar.pack(side="bottom", fill="x")
+        canvas.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
+        scrollable_frame = ttk.Frame(canvas)
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
 
-        # BWU Type (top right, mutually exclusive)
-        bwu_frame = ttk.Frame(right_frame)
-        bwu_frame.pack(side="top", anchor="w")
+        # Update scroll region when frame size changes
+        def update_scroll_region(event=None):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        scrollable_frame.bind("<Configure>", update_scroll_region)
+
+        # BWU Type (top, mutually exclusive, two rows of 5)
+        bwu_frame = ttk.Frame(scrollable_frame)
+        bwu_frame.pack(side="top", anchor="w", padx=5, pady=5)
         bwu_label = tk.Label(bwu_frame, text="BWU Type:", font=("arial.ttf", 14))
         bwu_label.pack(side="top", anchor="w")
         self.bwu_var = tk.StringVar(value="")
@@ -342,10 +359,10 @@ class ImageDownloaderGUI:
         ]
         # Top row (first 5 buttons)
         bwu_top_row = ttk.Frame(bwu_frame)
-        bwu_top_row.pack(side="top")
+        bwu_top_row.pack(side="top", fill="x")
         # Bottom row (last 5 buttons)
         bwu_bottom_row = ttk.Frame(bwu_frame)
-        bwu_bottom_row.pack(side="top")
+        bwu_bottom_row.pack(side="top", fill="x")
         self.bwu_buttons = {}
 
         def select_bwu(bwu_type):
@@ -374,9 +391,9 @@ class ImageDownloaderGUI:
             button.pack(side="left", padx=2, pady=5)
             self.bwu_buttons[bwu_type] = button
 
-        # Detected Defects (middle right, non-mutually exclusive)
-        defects_frame = ttk.Frame(right_frame)
-        defects_frame.pack(pady=20, anchor="w")
+        # Detected Defects (middle, non-mutually exclusive)
+        defects_frame = ttk.Frame(scrollable_frame)
+        defects_frame.pack(pady=10, anchor="w", padx=5)
         defects_label = tk.Label(defects_frame, text="Detected defects:", font=("arial.ttf", 15))
         defects_label.pack(anchor="w")
         self.defect_vars = {}
@@ -422,13 +439,13 @@ class ImageDownloaderGUI:
                 button.pack(side="left", padx=5, pady=5)
                 self.defect_buttons[defect] = button
 
-        # Comments field
-        comments_frame = ttk.Frame(right_frame)
-        comments_frame.pack(pady=10, anchor="w")
+        # Comments field (within scrollable frame)
+        comments_frame = ttk.Frame(scrollable_frame)
+        comments_frame.pack(pady=10, anchor="w", padx=5, fill="x")
         comments_label = tk.Label(comments_frame, text="Comments:", font=("arial.ttf", 12))
         comments_label.pack(side="left")
         self.comments_entry = tk.Entry(comments_frame, width=60, font=("arial.ttf", 12), bg="white")
-        self.comments_entry.pack(side="left", padx=5)
+        self.comments_entry.pack(side="left", padx=5, fill="x", expand=True)
 
         # Load first image and update window
         self.load_image(catalog_folder, images, catalog_window)
