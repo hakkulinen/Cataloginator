@@ -206,7 +206,7 @@ class ImageDownloaderGUI:
             ws = wb.active
             ws.title = "Catalog Report"
             headers = [
-                "bwu", "region", "Outlet number", "Scene id", "BWU type",
+                "", "", "", "", "BWU",
                 "Switched OFF", "Screen/SAS", "Header not working", "Low visibility in header",
                 "Shelf light", "Adjust shelves", "Top shelf", "Legal issue",
                 "Visible content in header", "Short vertical insert", "Physical damage",
@@ -560,7 +560,7 @@ class ImageDownloaderGUI:
             }
             for defect in defect_types:
                 ui_defect = next((k for k, v in defect_mapping.items() if v == defect), None)
-                data.append("Y" if ui_defect and self.defect_vars.get(ui_defect, tk.BooleanVar(value=False)).get() else "")
+                data.append(defect if ui_defect and self.defect_vars.get(ui_defect, tk.BooleanVar(value=False)).get() else "")
             # Add comments
             comment = self.comments_entry.get().strip() if hasattr(self, 'comments_entry') else ""
             data.append(comment)
@@ -580,15 +580,19 @@ class ImageDownloaderGUI:
             img = Image.open(image_path)
             draw = ImageDraw.Draw(img)
             try:
-                font = ImageFont.truetype("arial.ttf", 20)
+                font = ImageFont.truetype("arial.ttf", 30)
             except Exception:
                 font = ImageFont.load_default()
 
-            # Get selected defects
-            selected_defects = [
-                defect.replace('\n', ' ') for defect in self.defect_vars
-                if self.defect_vars[defect].get()
-            ]
+            # Get selected defects, preserving original UI labels for EMPTY defects
+            selected_defects = []
+            for defect in self.defect_vars:
+                if self.defect_vars[defect].get():
+                    # Only replace newlines for non-EMPTY defects
+                    if not defect.startswith("EMPTY"):
+                        selected_defects.append(defect.replace('\n', ' '))
+                    else:
+                        selected_defects.append(defect)
 
             # Prepare text
             defect_text = "\n".join(selected_defects)
@@ -598,13 +602,18 @@ class ImageDownloaderGUI:
 
             # Get image dimensions
             img_width, img_height = img.size
-            # Calculate text position (bottom-left)
             padding = 10
-            text_y = img_height - (len(selected_defects) * 25 + padding)
-            text_x = padding
+
+            # Calculate text position (upper-right)
+
+            # Estimate max text width for a 26-character string
+            max_text_width = int(ImageFont.truetype("arial.ttf", 30).getbbox("A" * config.MAX_DEFECT_LENGTH)[2])  # Right coordinate of bbox gives width
+            text_x = max(0, img_width - max_text_width - padding)  # Right-align with padding
+            text_y = padding  # Start at top with padding
+
 
             # Draw yellow text
-            draw.text((text_x, text_y), defect_text, fill="red", font=font)
+            draw.text((text_x, text_y), defect_text, fill="yellow", font=font)
             img.save(image_path, 'JPEG')
             logging.debug(f"Added defects to {image_path}")
         except Exception as e:
